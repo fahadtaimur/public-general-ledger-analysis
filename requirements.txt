@@ -1,0 +1,5 @@
+pandas
+matplotlib
+duckdb
+requests
+rich
