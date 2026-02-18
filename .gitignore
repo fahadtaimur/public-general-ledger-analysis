@@ -51,6 +51,7 @@ Thumbs.db
 *.pbix
 *.csv
 *.parquet
+*.crc
 
 # Ignore DuckDB files
 *.duckdb

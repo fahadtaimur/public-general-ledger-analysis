@@ -1,5 +1,6 @@
-pandas
-matplotlib
+boto3
 duckdb
+matplotlib
+pandas
 requests
 rich
