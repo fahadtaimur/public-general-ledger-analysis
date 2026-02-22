@@ -15,7 +15,7 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 stubs = ["boto3-stubs[s3]"]
-notebooks = ["jupyterlab", "ipykernel", "rich"]
+notebooks = ["jupyterlab", "ipykernel", "rich", "matplotlib", "seaborn"]
 test = ["pytest", "pytest-cov", "moto[s3]"]
 static-code-qa = [
     "pre-commit",

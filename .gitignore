@@ -52,6 +52,7 @@ Thumbs.db
 *.csv
 *.parquet
 *.crc
+_SUCCESS
 
 # Ignore DuckDB files
 *.duckdb
