@@ -1,0 +1,34 @@
+name: Deploy Glue scripts to S3
+
+on:
+    push:
+        branches:
+            - main
+        paths:
+            - 'src/glue_jobs/**'
+
+permissions:
+    id-token: write
+    contents: read
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Clone and checkout repo to Ubuntu runner
+              uses: actions/checkout@v4
+
+            - name: Configure AWS credentials via OIDC
+              uses: aws-actions/configure-aws-credentials@v4
+              with:
+                role-to-assume: ${{ vars.OKGL_DEPLOY_ROLE_ARN }}
+                aws-region: ${{ vars.OKGL_AWS_REGION }}
+
+            - name: Deploy Glue scripts to S3
+              run: |
+                aws s3 cp src/glue_jobs/ s3://${{ vars.OKGL_GLUE_ASSETS_BUCKET }}/scripts/ \
+                    --recursive \
+                    --exclude "__pycache__/*" \
+                    --exclude "*.pyc" \
+                    --exclude "__init__.py"
