@@ -15,6 +15,8 @@ Runtime parameters (passed via Glue job details):
     RAW_PATH      -- S3 path (prefix or glob) for raw CSV input files.
     SILVER_PATH   -- S3 destination path for the output Parquet dataset.
     METADATA_PATH -- S3 URI where the dropped-columns manifest is written.
+
+.github/workflows push this script to AWS S3. Role and permissions need to be enabled.
 """
 
 # ruff: noqa
