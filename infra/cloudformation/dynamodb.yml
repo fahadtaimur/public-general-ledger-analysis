@@ -1,0 +1,17 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Resources:
+  OklahomaGLMetadataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: okgl-metadata
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: resource_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: resource_id
+          KeyType: HASH  # partition key
+
+Outputs:
+  TableArn:
+    Value: !GetAtt OklahomaGLMetadataTable.Arn
