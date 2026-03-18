@@ -17,18 +17,18 @@ from src.config.constants import (
 )
 
 
-def fetch_oklahoma_gl_urls(timeout: int = 60) -> List[Tuple[str, str]]:
+def fetch_oklahoma_gl_resources(timeout: int = 60) -> List[dict]:
     """
-    Fetches a list of General Ledger CSV file names and their download URLs.
+    Fetches full resource metadata for all General Ledger CSV files from the CKAN API.
 
-    This function sends a GET request to the Oklahoma Government API to retrieve
-    metadata about General Ledger files. It extracts the file names and their
-    corresponding download URLs from the API response.
+    This function sends a GET request to the Oklahoma Government API and returns
+    the complete resource metadata for each CSV file. The full metadata is used
+    downstream for DynamoDB storage and change detection.
 
     :param timeout: Timeout settings for the HTTP request, in seconds.
     :type timeout: int
-    :return: A list of tuples, where each tuple contains a file name and its download URL.
-    :rtype: List[Tuple[str, str]]
+    :return: A list of resource metadata dicts from the CKAN API.
+    :rtype: List[dict]
     """
     try:
         response: Response = requests.get(url=API_URL, params={"id": GENERAL_LEDGER_ID}, timeout=timeout)
@@ -39,35 +39,31 @@ def fetch_oklahoma_gl_urls(timeout: int = 60) -> List[Tuple[str, str]]:
             logging.error("Unexpected API response structure: %s", data)
             raise ValueError("API response does not contain 'result' or 'resources'.")
 
-        # Extract filename and download url
-
-        file_names = [(f["name"], f["url"]) for f in data["result"]["resources"] if f["url"].lower().endswith(".csv")]
-        logging.info("Successfully fetched %d file(s) from API.", len(file_names))
-        return file_names
+        resources = [r for r in data["result"]["resources"] if r["url"].lower().endswith(".csv")]
+        logging.info("Successfully fetched %d resource(s) from API.", len(resources))
+        return resources
     except requests.exceptions.RequestException as e:
-        logging.error("Failed to fetch file names and urls. Error: %s", e)
+        logging.error("Failed to fetch resources from API. Error: %s", e)
         raise
 
 
-def fetch_oklahoma_gl_csv_from_url(file_info: Tuple[str, str], timeout: int = 60) -> Tuple[str, bytes]:
+def fetch_oklahoma_gl_csv_from_url(resource: dict, timeout: int = 60) -> Tuple[str, bytes]:
     """
-    Fetches a General Ledger CSV file from the given URL.
+    Fetches a General Ledger CSV file from the given resource metadata.
 
     This function retrieves a CSV file from the Oklahoma Government website
-    based on the provided file name and URL. The file content is returned
+    based on the resource metadata dict. The file content is returned
     as binary data along with the file name.
 
-    :param file_info: A tuple containing the file name and the URL
-    :type file_info: Tuple[str, str]
+    :param resource: A resource metadata dict containing at minimum 'name' and 'url'.
+    :type resource: dict
     :param timeout: Timeout settings for the HTTP request.
     :type timeout: int
     :return: A tuple containing the name of the fetched file and data as binary content
     :rtype: Tuple[str, bytes]
     """
-    if not file_info:
-        raise ValueError("file_info must be a tuple containing (file_name, file_url)")
-
-    file_name, file_url = file_info
+    file_name = resource["name"]
+    file_url = resource["url"]
 
     try:
         response: Response = requests.get(url=file_url, stream=True, timeout=timeout)
