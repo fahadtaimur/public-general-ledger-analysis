@@ -18,6 +18,7 @@ Resources:
         - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
         - !Ref GlueS3RawReadPolicy
         - !Ref GlueS3SilverWritePolicy
+        - !Ref GlueS3ScriptReadPolicy
 
   # Allow Glue to list and read CSV files from the raw S3 prefix
   GlueS3RawReadPolicy:
@@ -46,6 +47,21 @@ Resources:
             Resource:
               - arn:aws:s3:::oklahoma-gl-test/raw/*
 
+  # Allow Glue to read its own script from S3 at job startup
+  GlueS3ScriptReadPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: okgl-glue-s3-script-read
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ReadGlueScript
+            Effect: Allow
+            Action:
+              - s3:GetObject
+            Resource:
+              - arn:aws:s3:::oklahoma-gl-test/glue/scripts/*
+
   # Allow Glue to write Parquet files to the silver S3 prefix
   GlueS3SilverWritePolicy:
     Type: AWS::IAM::ManagedPolicy
@@ -54,7 +70,7 @@ Resources:
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
-          - Sid: ListSilverPrefix
+          - Sid: ListSilverAndMetadataPrefix
             Effect: Allow
             Action:
               - s3:ListBucket
@@ -65,6 +81,8 @@ Resources:
                 s3:prefix:
                   - silver/*
                   - silver
+                  - metadata/*
+                  - metadata
           - Sid: WriteSilverObjects
             Effect: Allow
             Action:
@@ -72,3 +90,6 @@ Resources:
               - s3:DeleteObject
             Resource:
               - arn:aws:s3:::oklahoma-gl-test/silver/*
+              - arn:aws:s3:::oklahoma-gl-test/silver_$folder$
+              - arn:aws:s3:::oklahoma-gl-test/metadata/*
+              - arn:aws:s3:::oklahoma-gl-test/metadata_$folder$
