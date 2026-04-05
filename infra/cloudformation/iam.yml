@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: 'IAM Role for AWS Glue with S3 Read/Write permissions'
+
+Resources:
+  GlueExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: okgl-glue-execution-role
+      # Trust policy
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: glue.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+        - !Ref GlueS3RawReadPolicy
+        - !Ref GlueS3SilverWritePolicy
+
+  # Allow Glue to list and read CSV files from the raw S3 prefix
+  GlueS3RawReadPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: okgl-glue-s3-raw-read
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ListRawPrefix
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+            Resource:
+              - arn:aws:s3:::oklahoma-gl-test
+            Condition:
+              StringLike:
+                s3:prefix:
+                  - raw/*
+                  - raw
+          - Sid: ReadRawObjects
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:GetObjectVersion
+            Resource:
+              - arn:aws:s3:::oklahoma-gl-test/raw/*
+
+  # Allow Glue to write Parquet files to the silver S3 prefix
+  GlueS3SilverWritePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: okgl-glue-s3-silver-write
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ListSilverPrefix
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+            Resource:
+              - arn:aws:s3:::oklahoma-gl-test
+            Condition:
+              StringLike:
+                s3:prefix:
+                  - silver/*
+                  - silver
+          - Sid: WriteSilverObjects
+            Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:DeleteObject
+            Resource:
+              - arn:aws:s3:::oklahoma-gl-test/silver/*

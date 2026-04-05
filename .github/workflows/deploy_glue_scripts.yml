@@ -27,7 +27,7 @@ jobs:
 
             - name: Deploy Glue scripts to S3
               run: |
-                aws s3 cp src/glue_jobs/ s3://${{ vars.OKGL_GLUE_ASSETS_BUCKET }}/scripts/ \
+                aws s3 cp src/glue_jobs/ s3://${{ vars.OKGL_GLUE_ASSETS_BUCKET }}/glue/scripts/ \
                     --recursive \
                     --exclude "__pycache__/*" \
                     --exclude "*.pyc" \

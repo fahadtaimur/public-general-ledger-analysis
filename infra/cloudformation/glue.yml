@@ -1,0 +1,20 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Glue ETL job that transforms raw Oklahoma GL CSV files into silver Parquet"
+Resources:
+  RawToSilverBackfillJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: okgl-raw-to-silver-backfill
+      Role: okgl-glue-execution-role
+      GlueVersion: "4.0"
+      WorkerType: G.1X
+      NumberOfWorkers: 2
+      Command:
+        Name: glueetl
+        ScriptLocation: s3://oklahoma-gl-test/glue/scripts/raw_to_silver_backfill.py
+        PythonVersion: "3"
+      DefaultArguments:
+        "--JOB_NAME": okgl-raw-to-silver-backfill
+        "--RAW_PATH": s3://oklahoma-gl-test/raw/
+        "--SILVER_PATH": s3://oklahoma-gl-test/silver/
+        "--METADATA_PATH": s3://oklahoma-gl-test/metadata/
