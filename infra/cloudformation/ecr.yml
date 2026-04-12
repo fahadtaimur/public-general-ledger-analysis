@@ -1,0 +1,13 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "ECR repository for the Oklahoma GL pipeline container image"
+Resources:
+    OkglPipelineRepository:
+      Type: AWS::ECR::Repository
+      Properties:
+        RepositoryName: okgl-pipeline
+        ImageScanningConfiguration:
+          ScanOnPush: true
+
+Outputs:
+  RepositoryUri:
+    Value: !GetAtt OkglPipelineRepository.RepositoryUri

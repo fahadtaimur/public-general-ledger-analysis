@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: 'IAM Role for AWS Glue with S3 Read/Write permissions'
+Description: 'IAM Roles for ECS, AWS Glue with S3 Read/Write permissions'
 
 Resources:
   GlueExecutionRole:
@@ -93,3 +93,78 @@ Resources:
               - arn:aws:s3:::oklahoma-gl-test/silver_$folder$
               - arn:aws:s3:::oklahoma-gl-test/metadata/*
               - arn:aws:s3:::oklahoma-gl-test/metadata_$folder$
+
+  # ECS Roles
+  # Allow ECS agent to pull container image from ECR and write logs to CloudWatch
+  EcsTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: okgl-ecs-execution-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      # ECS read & CloudWatch write
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  # Allow container data pipeline to call s3 / dynamodb
+  EcsTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: okgl-ecs-task-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Ref EcsS3RawWritePolicy
+        - !Ref EcsDynamoDBPolicy
+
+  # Allow the docker container to write fetched CSV files to S3
+  EcsS3RawWritePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: okgl-ecs-s3-raw-write
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ListRawPrefix
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+            Resource:
+              - arn:aws:s3:::oklahoma-gl-test
+            Condition:
+              StringLike:
+                s3:prefix:
+                  - raw/*
+                  - raw
+          - Sid: WriteRawObjects
+            Effect: Allow
+            Action:
+              - s3:PutObject
+            Resource:
+              - arn:aws:s3:::oklahoma-gl-test/raw/*
+
+  # Allow the container to read / write to DynamoDB (metadata)
+  EcsDynamoDBPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: okgl-ecs-dynamodb
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ReadWriteMetadataTable
+            Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+            Resource:
+              - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/okgl-metadata

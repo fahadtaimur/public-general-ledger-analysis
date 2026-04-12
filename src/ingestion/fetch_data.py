@@ -11,7 +11,7 @@ from typing import (
 import requests
 from requests.models import Response
 
-from src.config.constants import (
+from config.constants import (
     API_URL,
     GENERAL_LEDGER_ID,
 )

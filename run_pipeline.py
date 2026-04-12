@@ -13,19 +13,19 @@ from datetime import (
     timezone,
 )
 
-from src.config.paths import (
+from config.paths import (
     S3_BUCKET_NAME,
     S3_RAW_DIR,
 )
-from src.data.fetch_data import (
+from ingestion.fetch_data import (
     fetch_oklahoma_gl_csv_from_url,
     fetch_oklahoma_gl_resources,
 )
-from src.metadata.dynamodb import (
+from metadata.dynamodb import (
     get_metadata_item,
     put_metadata_item,
 )
-from src.s3.write_object import write_csv_object_to_s3
+from s3.write_object import write_csv_object_to_s3
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s: %(message)s")
 

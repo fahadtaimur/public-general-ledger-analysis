@@ -4,13 +4,16 @@ List objects in an S3 bucket
 
 import logging
 from typing import (
+    TYPE_CHECKING,
     List,
     Optional,
 )
 
 import boto3
 from botocore.exceptions import ClientError
-from mypy_boto3_s3 import S3Client
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3 import S3Client
 
 
 def list_objects_in_bucket(

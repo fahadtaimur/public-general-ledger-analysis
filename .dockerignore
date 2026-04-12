@@ -1,0 +1,25 @@
+# Virtual environment
+venv/
+
+# Python cache
+**/__pycache__/
+**/*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Infrastructure
+infra/
+
+# No need to include glue job file / dependencies
+src/glue_jobs/
+
+# Notebooks and local data
+notebooks/
+data/
+
+# Dev / editor artifacts
+.env
+.git/
+.gitignore
+*.md

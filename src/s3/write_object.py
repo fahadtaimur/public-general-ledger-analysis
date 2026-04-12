@@ -3,12 +3,17 @@ Upload objects to S3
 """
 
 import logging
-from typing import Optional
+from typing import (
+    TYPE_CHECKING,
+    Optional,
+)
 
 import boto3
 from botocore.exceptions import ClientError
-from mypy_boto3_s3 import S3Client
-from mypy_boto3_s3.type_defs import ResponseMetadataTypeDef
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3 import S3Client
+    from mypy_boto3_s3.type_defs import ResponseMetadataTypeDef
 
 
 def write_csv_object_to_s3(
@@ -17,7 +22,7 @@ def write_csv_object_to_s3(
     file_data: bytes,
     content_type: str = "text/csv",
     s3_client: Optional["S3Client"] = None,
-) -> ResponseMetadataTypeDef:
+) -> "ResponseMetadataTypeDef":
     """
     Upload a csv file to AWS S3.
 

@@ -8,12 +8,15 @@ dependencies = [
     "boto3",
     "duckdb",
     "rich",
-    "charset-normalizer",
-    "pyspark"
+    "charset-normalizer"
 ]
 dynamic = ["version"]
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [project.optional-dependencies]
+glue = ["pyspark"]
 stubs = ["boto3-stubs[s3,dynamodb]"]
 notebooks = ["jupyterlab", "ipykernel", "rich", "matplotlib", "seaborn"]
 test = ["pytest", "pytest-cov", "moto[s3]"]
@@ -28,7 +31,7 @@ static-code-qa = [
     "radon",
 ]
 
-dev = ["gloklahoma[test,static-code-qa,stubs,notebooks]"]
+dev = ["gloklahoma[test,static-code-qa,stubs,notebooks,glue]"]
 
 [tool.black]
 line-length = 119

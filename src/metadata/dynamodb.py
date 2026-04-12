@@ -3,7 +3,10 @@ Module for interaction with dynamodb which is used for metadata storage
 """
 
 import logging
-from typing import Optional
+from typing import (
+    TYPE_CHECKING,
+    Optional,
+)
 
 import boto3
 from boto3.dynamodb.types import TypeSerializer
@@ -14,21 +17,17 @@ from config.constants import (
     REGION,
 )
 
-try:
+if TYPE_CHECKING:
     from mypy_boto3_dynamodb import DynamoDBClient
     from mypy_boto3_dynamodb.type_defs import (
         GetItemOutputTypeDef,
         PutItemOutputTypeDef,
     )
 
-    # type imports - implement
-except ImportError:
-    print("boto3-stubs[dynamodb] is not installed")
-
 
 def get_metadata_item(
     resource_id: str, table_name: str = DYNAMODB_TABLENAME, client: Optional["DynamoDBClient"] = None
-) -> GetItemOutputTypeDef:
+) -> "GetItemOutputTypeDef":
     """
     Retrieve a metadata record from DynamoDB by resource_id.
 
@@ -76,7 +75,7 @@ def put_metadata_item(
     retrieved_at: str,
     table_name: str = DYNAMODB_TABLENAME,
     client: Optional["DynamoDBClient"] = None,
-) -> PutItemOutputTypeDef:
+) -> "PutItemOutputTypeDef":
     """
     Write a metadata record to DynamoDB.
 
