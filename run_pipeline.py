@@ -34,6 +34,11 @@ def run():
     # Retrieve oklahoma gl metadata from CKAN API
     resources = fetch_oklahoma_gl_resources()
 
+    # Record count of files retrieved
+    new_count = 0
+    updated_count = 0
+    skipped_count = 0
+
     for resource in resources:
         resource_id = resource["resource_id"]
         retrieved_at = datetime.now(timezone.utc).isoformat()
@@ -43,24 +48,32 @@ def run():
 
         if existing_item is None:
             # New file — fetch and write to S3
-            logging.info("New file detected: %s", resource["name"])
             file_name, file_data = fetch_oklahoma_gl_csv_from_url(resource=resource)
             write_csv_object_to_s3(
                 bucket_name=S3_BUCKET_NAME, object_key=f"{S3_RAW_DIR}/{file_name}", file_data=file_data
             )
             put_metadata_item(resource=resource, retrieved_at=retrieved_at)
+            new_count += 1
         else:
             # Existing file — check if last_modified has changed
             stored_last_modified = existing_item.get("last_modified", {}).get("S")
             if resource["last_modified"] != stored_last_modified:
-                logging.info("Change detected for %s, re-fetching.", resource["name"])
                 file_name, file_data = fetch_oklahoma_gl_csv_from_url(resource=resource)
                 write_csv_object_to_s3(
                     bucket_name=S3_BUCKET_NAME, object_key=f"{S3_RAW_DIR}/{file_name}", file_data=file_data
                 )
                 put_metadata_item(resource=resource, retrieved_at=retrieved_at)
+                updated_count += 1
             else:
-                logging.info("No change detected for %s, skipping.", resource["name"])
+                skipped_count += 1
+
+    logging.info(
+        "Pipeline complete — %d new, %d updated, %d unchanged (total: %d)",
+        new_count,
+        updated_count,
+        skipped_count,
+        len(resources),
+    )
 
 
 if __name__ == "__main__":

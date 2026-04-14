@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ECS Fargate cluster, logging and task definition for OKGL ingestion pipeline
+Resources:
+  # Cluster for tasks
+  OkglCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: okgl-cluster
+
+  # CloudWatch log group for container logging
+  OkglPipelineLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/okgl-pipeline
+      RetentionInDays: 60
+
+  # Task Definition - Config, CPU / Memory, Roles, Env
+  OkglPipelineTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: okgl-pipeline
+      Cpu: '1024'
+      Memory: '4096'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      # ECS execution role to pull image from ECR & write logs
+      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/okgl-ecs-execution-role
+      # Task role
+      TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/okgl-ecs-task-role
+      ContainerDefinitions:
+        - Name: okgl-pipeline
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/okgl-pipeline:latest
+          Essential: true
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/okgl-pipeline
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+
+Outputs:
+  ClusterArn:
+    Value: !GetAtt OkglCluster.Arn
+  TaskDefinitionArn:
+    Value: !Ref OkglPipelineTaskDefinition

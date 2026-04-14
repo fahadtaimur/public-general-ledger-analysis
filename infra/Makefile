@@ -28,6 +28,11 @@ deploy-ecr:
 		--stack-name okgl-ecr \
 		--region $(REGION)
 
+deploy-ecs:
+	aws cloudformation deploy \
+		--template-file cloudformation/ecs.yml \
+		--stack-name okgl-ecs \
+		--region $(REGION)
 
 # container specific commands
 build-image:
@@ -45,3 +50,22 @@ push-image: ecr-login
 	docker push $(ECR_URL):latest
 
 build-push-image: build-image push-image
+
+# Pipeline
+# Manual usage: make run-task SUBNET_ID=subnet-xxx SG_ID=sg-xxx
+run-task:
+	aws ecs run-task \
+		--cluster okgl-cluster \
+		--task-definition okgl-pipeline \
+		--launch-type FARGATE \
+		--network-configuration "awsvpcConfiguration={subnets=[$(SUBNET_ID)],securityGroups=[$(SG_ID)],assignPublicIp=ENABLED}" \
+		--region $(REGION)
+
+logs:
+	aws logs tail /ecs/okgl-pipeline --follow --region $(REGION)
+
+get-vpc-ids:
+	@echo "SubnetId:"
+	@aws ec2 describe-subnets --filters "Name=default-for-az,Values=true" --query "Subnets[0].SubnetId" --output text --region $(REGION)
+	@echo "SecurityGroupId:"
+	@aws ec2 describe-security-groups --filters "Name=group-name,Values=default" --query "SecurityGroups[0].GroupId" --output text --region $(REGION)
