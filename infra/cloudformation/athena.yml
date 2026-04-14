@@ -1,1 +1,110 @@
-# DO THIS AFTER ecr.yml
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Glue Data Catalog database and tables for Athena querying of Oklahoma GL data"
+
+Resources:
+  # Namespace grouping all Oklahoma GL tables in the Glue catalog
+  OkglDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: okgl
+        Description: Oklahoma General Ledger Data
+
+  # Silver table - Parquet, partitioned by fiscal year
+  OkglSilverTable:
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !Ref OkglDatabase
+      TableInput:
+        Name: general_ledger
+        Description: Cleaned Parquet OKGL data (partitioned by fiscal year)
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          classification: parquet
+          # Enable partition projection so Athena infers partitions from S3 paths without a crawler
+          "projection.enabled": "true"
+          "projection.fiscal_year.type": "integer"
+          "projection.fiscal_year.range": "2020,2050"
+          "storage.location.template": "s3://oklahoma-gl-test/silver/FISCAL_YEAR=${fiscal_year}"
+        StorageDescriptor:
+          Location: s3://oklahoma-gl-test/silver/
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          SerdeInfo:
+            SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+          # Partition is only by fiscal_year
+          StoredAsSubDirectories: false
+          Columns:
+            - Name: AGENCYNBR
+              Type: string
+            - Name: AGENCYNAME
+              Type: string
+            - Name: LEDGER
+              Type: string
+            - Name: ACCOUNTING_PERIOD
+              Type: int
+            - Name: FUND_CODE
+              Type: string
+            - Name: FUNDDESCR
+              Type: string
+            - Name: CLASS_FLD
+              Type: string
+            - Name: CLASSDESCR
+              Type: string
+            - Name: DEPTID
+              Type: string
+            - Name: DEPTDESCR
+              Type: string
+            - Name: ACCOUNT
+              Type: string
+            - Name: ACCTDESCR
+              Type: string
+            - Name: OPERATING_UNIT
+              Type: string
+            - Name: PRODUCT
+              Type: string
+            - Name: PROGRAM_CODE
+              Type: string
+            - Name: BUDGET_REF
+              Type: string
+            - Name: CHARTFIELD1
+              Type: string
+            - Name: CHARTFIELD2
+              Type: string
+            - Name: PROJECT_ID
+              Type: string
+            - Name: POSTED_TOTAL_AMT
+              Type: double
+            - Name: ACTIVITY
+              Type: string
+            - Name: ROWID
+              Type: string
+            - Name: source_file
+              Type: string
+            - Name: EXTRACTED_QUARTER
+              Type: string
+        # Partition key to match the directory structure written by Spark
+        PartitionKeys:
+          - Name: FISCAL_YEAR
+            Type: int
+
+  # Athena workgroup - query result location, cost guard
+  OkglWorkgroup:
+    Type: AWS::Athena::WorkGroup
+    Properties:
+      Name: okgl
+      WorkGroupConfiguration:
+        ResultConfiguration:
+          OutputLocation: s3://oklahoma-gl-test/athena-results/
+        EnforceWorkGroupConfiguration: true
+        PublishCloudWatchMetricsEnabled: true
+        # 1 GB max scan limit
+        BytesScannedCutoffPerQuery: 1073741824
+
+Outputs:
+  DatabaseName:
+    Value: !Ref OkglDatabase
+  WorkgroupName:
+    Value: !Ref OkglWorkgroup

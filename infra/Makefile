@@ -3,12 +3,6 @@ ACCOUNT_ID := $(shell aws sts get-caller-identity --query Account --output text)
 IMAGE_NAME = okgl-pipeline
 ECR_URL = $(ACCOUNT_ID).dkr.ecr.$(REGION).amazonaws.com/$(IMAGE_NAME)
 
-deploy-dynamodb:
-	aws cloudformation deploy \
-		--template-file cloudformation/dynamodb.yml \
-		--stack-name okgl-metadata \
-		--region $(REGION)
-
 deploy-iam:
 	aws cloudformation deploy \
 		--template-file cloudformation/iam.yml \
@@ -16,10 +10,10 @@ deploy-iam:
 		--capabilities CAPABILITY_NAMED_IAM \
 		--region $(REGION)
 
-deploy-glue:
+deploy-dynamodb:
 	aws cloudformation deploy \
-		--template-file cloudformation/glue.yml \
-		--stack-name okgl-glue \
+		--template-file cloudformation/dynamodb.yml \
+		--stack-name okgl-metadata \
 		--region $(REGION)
 
 deploy-ecr:
@@ -32,6 +26,18 @@ deploy-ecs:
 	aws cloudformation deploy \
 		--template-file cloudformation/ecs.yml \
 		--stack-name okgl-ecs \
+		--region $(REGION)
+
+deploy-glue:
+	aws cloudformation deploy \
+		--template-file cloudformation/glue.yml \
+		--stack-name okgl-glue \
+		--region $(REGION)
+
+deploy-athena:
+	aws cloudformation deploy \
+		--template-file cloudformation/athena.yml \
+		--stack-name okgl-athena \
 		--region $(REGION)
 
 # container specific commands
