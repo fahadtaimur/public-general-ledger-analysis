@@ -1,1 +1,149 @@
-# DO THIS AFTER athena.yml
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Step Functions state machine orchestrating ECS ingestion and Glue transformation with SNS alerting
+
+Parameters:
+    # Default VPC subnet and security group (all outbound, no inbound) for ECS, and email for alerts
+    SubnetId:
+      Type: AWS::EC2::Subnet::Id
+      Description: Subnet ID for Fargate ingestion task
+    SecurityGroupId:
+      Type: AWS::EC2::SecurityGroup::Id
+      Description: Security group ID for the Fargate ingestion task
+    AlertEmail:
+      Type: String
+      Description: Email address for pipeline alerts (success or failure)
+
+Resources:
+  # State machine: runs ECS ingestion task, then triggers the Glue transformation job
+  OkglPipelineStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: okgl-pipeline
+      RoleArn: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/okgl-stepfunctions-execution-role
+      DefinitionString: !Sub |
+        {
+          "StartAt": "RunIngestionTask",
+          "States": {
+            "RunIngestionTask": {
+              "Type": "Task",
+              "Resource": "arn:${AWS::Partition}:states:::ecs:runTask.sync",
+              "Comment": "Fetch files from CKAN API, write to S3 raw, update DynamoDB metadata",
+              "Parameters": {
+                "LaunchType": "FARGATE",
+                "Cluster": "arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:cluster/okgl-cluster",
+                "TaskDefinition": "okgl-pipeline",
+                "NetworkConfiguration": {
+                  "AwsvpcConfiguration": {
+                    "Subnets": ["${SubnetId}"],
+                    "SecurityGroups": ["${SecurityGroupId}"],
+                    "AssignPublicIp": "ENABLED"
+                  }
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.TaskFailed"],
+                  "IntervalSeconds": 30,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2
+                }
+              ],
+              "ResultPath": null,
+              "Next": "RunGlueJob"
+            },
+            "RunGlueJob": {
+              "Type": "Task",
+              "Resource": "arn:${AWS::Partition}:states:::glue:startJobRun.sync",
+              "Comment": "Transform raw CSV files to silver Parquet, partitioned by fiscal year",
+              "Parameters": {
+                "JobName": "okgl-raw-to-silver-backfill"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.TaskFailed"],
+                  "IntervalSeconds": 60,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2
+                }
+              ],
+              "End": true
+            }
+          }
+        }
+
+  # SNS topic — receives pipeline alerts and fans out to email subscribers
+  OkglAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: okgl-pipeline-alerts
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref AlertEmail
+
+  # EventBridge rule — fires when the Step Functions execution succeeds
+  OkglPipelineSucceededRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: okgl-pipeline-succeeded
+      EventPattern:
+        source:
+          - aws.states
+        detail-type:
+          - Step Functions Execution Status Change
+        detail:
+          stateMachineArn:
+            - !GetAtt OkglPipelineStateMachine.Arn
+          status:
+            - SUCCEEDED
+      Targets:
+        - Id: AlertsTopicSucceeded
+          Arn: !Ref OkglAlertsTopic
+
+  # EventBridge rule — fires when the Step Functions execution fails or times out
+  OkglPipelineFailedRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: okgl-pipeline-failed
+      EventPattern:
+        source:
+          - aws.states
+        detail-type:
+          - Step Functions Execution Status Change
+        detail:
+          stateMachineArn:
+            - !GetAtt OkglPipelineStateMachine.Arn
+          status:
+            - FAILED
+            - TIMED_OUT
+            - ABORTED
+      Targets:
+        - Id: AlertsTopicFailed
+          Arn: !Ref OkglAlertsTopic
+
+  # EventBridge Scheduler to triggers the pipeline on the 15th of every month at 6 AM UTC
+  OkglMonthlySchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: okgl-monthly-pipeline
+      State: ENABLED
+      ScheduleExpression: cron(0 6 15 * ? *)
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: !GetAtt OkglPipelineStateMachine.Arn
+        RoleArn: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/okgl-eventbridge-scheduler-role
+
+  # Allow EventBridge to publish to the SNS topic
+  OkglAlertsTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref OkglAlertsTopic
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref OkglAlertsTopic

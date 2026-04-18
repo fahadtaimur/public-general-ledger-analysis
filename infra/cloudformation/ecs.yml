@@ -25,9 +25,9 @@ Resources:
       RequiresCompatibilities:
         - FARGATE
       # ECS execution role to pull image from ECR & write logs
-      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/okgl-ecs-execution-role
+      ExecutionRoleArn: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/okgl-ecs-execution-role
       # Task role
-      TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/okgl-ecs-task-role
+      TaskRoleArn: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/okgl-ecs-task-role
       ContainerDefinitions:
         - Name: okgl-pipeline
           Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/okgl-pipeline:latest

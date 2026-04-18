@@ -168,3 +168,98 @@ Resources:
               - dynamodb:PutItem
             Resource:
               - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/okgl-metadata
+
+  # Step Functions Role and Policy
+  StepFunctionsExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: okgl-stepfunctions-execution-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Ref StepFunctionsPolicy
+
+  StepFunctionsPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: okgl-stepfunctions-policy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # Start the ingestion container scoped to okgl-pipeline so any new image revision is covered
+          - Sid: EcsRunTask
+            Effect: Allow
+            Action:
+              - ecs:RunTask
+            Resource:
+              - !Sub arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/okgl-pipeline:*
+          # Poll task status until it finishes or stop it if the execution is aborted mid-run
+          # Task ARNs are assigned at runtime so * is needed
+          - Sid: EcsManageTasks
+            Effect: Allow
+            Action:
+              - ecs:StopTask
+              - ecs:DescribeTasks
+            Resource: '*'
+          # Step Functions creates a temporary EventBridge rule under the hood to detect when the
+          # ECS task completes (.sync)
+          - Sid: EventBridgeForEcsSync
+            Effect: Allow
+            Action:
+              - events:PutTargets
+              - events:PutRule
+              - events:DescribeRule
+            Resource: '*'
+          # Pass task roles to ECS at launch time
+          - Sid: PassEcsRoles
+            Effect: Allow
+            Action:
+              - iam:PassRole
+            Resource:
+              - !GetAtt EcsTaskExecutionRole.Arn
+              - !GetAtt EcsTaskRole.Arn
+          # Start the Glue job and poll it until completion
+          - Sid: GlueJobControl
+            Effect: Allow
+            Action:
+              - glue:StartJobRun
+              - glue:GetJobRun
+              - glue:GetJobRuns
+              - glue:BatchStopJobRun
+            Resource:
+              - !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/okgl-raw-to-silver-backfill
+
+  # EventBridge Scheduler Role allows the scheduler to start the Step Functions state machine
+  EventBridgeSchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: okgl-eventbridge-scheduler-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Ref EventBridgeSchedulerPolicy
+
+  # Allow the scheduler to trigger the okgl-pipeline state machine only
+  EventBridgeSchedulerPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: okgl-eventbridge-scheduler-policy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: StartStateMachine
+            Effect: Allow
+            Action:
+              - states:StartExecution
+            Resource:
+              - !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:okgl-pipeline

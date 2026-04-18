@@ -40,6 +40,15 @@ deploy-athena:
 		--stack-name okgl-athena \
 		--region $(REGION)
 
+# Usage: make deploy-stepfunctions SUBNET_ID=subnet-xxx SG_ID=sg-xxx ALERT_EMAIL=you@example.com
+deploy-stepfunctions:
+	aws cloudformation deploy \
+		--template-file cloudformation/stepfunctions.yml \
+		--stack-name okgl-stepfunctions \
+		--parameter-overrides SubnetId=$(SUBNET_ID) SecurityGroupId=$(SG_ID) AlertEmail=$(ALERT_EMAIL) \
+		--region $(REGION)
+
+
 # container specific commands
 build-image:
 	docker build --no-cache --platform linux/amd64 -t $(IMAGE_NAME) ../
